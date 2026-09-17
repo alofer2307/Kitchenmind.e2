@@ -1,0 +1,4 @@
+import { requireChatGPTUser } from "@/app/chatgpt-auth";
+import { OperationsScreen } from "@/components/operations/operations-screen";
+export const dynamic = "force-dynamic";
+export default async function Page({ searchParams }: { searchParams: Promise<{ organizationId?: string; branchId?: string; operationalDate?: string; employeeSearch?:string; employeeStatus?:string; employeePage?:string }> }) { const params=await searchParams; await requireChatGPTUser("/app/personal/empleados"); return <OperationsScreen section="employees" organizationId={params.organizationId} branchId={params.branchId} operationalDate={params.operationalDate} employeeSearch={params.employeeSearch} employeeStatus={params.employeeStatus} employeePage={params.employeePage?Number(params.employeePage):undefined}/>; }
