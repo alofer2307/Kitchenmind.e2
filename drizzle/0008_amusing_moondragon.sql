@@ -1,0 +1,2 @@
+ALTER TABLE `user_dashboard_preferences` ADD `dashboard_code` text DEFAULT 'operations' NOT NULL;--> statement-breakpoint
+ALTER TABLE `user_dashboard_preferences` ADD `filter_json` text DEFAULT '{}' NOT NULL;

@@ -1,0 +1,90 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788522438901,
+      "tag": "0000_naive_alex_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788547523334,
+      "tag": "0001_romantic_kid_colt",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788574719594,
+      "tag": "0002_fine_terrax",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788575451278,
+      "tag": "0003_clumsy_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788575730182,
+      "tag": "0004_overjoyed_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788575994320,
+      "tag": "0005_wonderful_runaways",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788801037629,
+      "tag": "0006_volatile_captain_flint",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788824213740,
+      "tag": "0007_confused_wolfpack",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788865944296,
+      "tag": "0008_amusing_moondragon",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788866684899,
+      "tag": "0009_nifty_vin_gonzales",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788890483719,
+      "tag": "0010_serious_madrox",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1788950857686,
+      "tag": "0011_quick_ben_parker",
+      "breakpoints": true
+    }
+  ]
+}

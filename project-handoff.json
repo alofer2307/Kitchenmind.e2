@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 3,
+  "project": {
+    "name": "KitchenMind",
+    "stage": "E.2 + Work access/PWA reconstruction",
+    "release": "master-vercel-2026-09-19",
+    "description": "SaaS multiempresa y multisucursal con acceso público nativo, Platform, comercial, aprovisionamiento, dashboard, Calidad y Personal/Asistencia",
+    "branch": "main",
+    "targetHosting": "Vercel"
+  },
+  "runtime": {
+    "node": ">=22.13.0",
+    "framework": "Next.js App Router",
+    "language": "TypeScript strict",
+    "database": "Turso/libSQL in production; Cloudflare D1 REST remains supported",
+    "objectStorage": "adapter pending for binary Quality evidence",
+    "orm": "Drizzle schema and SQL migrations",
+    "hosting": "Vercel"
+  },
+  "database": {
+    "schema": "db/schema.ts",
+    "migrationsDirectory": "drizzle",
+    "latestMigration": "drizzle/0012_native_auth_vercel.sql",
+    "remoteMigrator": "scripts/apply-d1-migrations.mjs",
+    "portableGenerator": "scripts/create-portable-database.mjs",
+    "upgradePolicy": "infer already-applied E.2 migrations from sentinels, then apply only missing migrations"
+  },
+  "requiredEnvironmentVariables": [
+    "TURSO_DATABASE_URL",
+    "TURSO_AUTH_TOKEN",
+    "KITCHENMIND_PLATFORM_OWNER_EMAIL",
+    "KITCHENMIND_OWNER_PASSWORD",
+    "KITCHENMIND_PLATFORM_MFA_KEY",
+    "NEXT_PUBLIC_APP_URL"
+  ],
+  "optionalEnvironmentVariables": [
+    "RESEND_API_KEY",
+    "AUTH_EMAIL_FROM"
+  ],
+  "commands": {
+    "install": "npm ci",
+    "develop": "npm run dev",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build",
+    "test": "npm test",
+    "migrateRemoteD1": "npm run db:migrate:remote"
+  },
+  "primaryRoutes": {
+    "login": "/login",
+    "passwordRecovery": "/recuperar",
+    "invitation": "/aceptar-invitacion",
+    "health": "/api/health",
+    "platform": "/platform",
+    "commercialProspects": "/platform/prospectos",
+    "commercialPricing": "/platform/precios",
+    "commercialQuotes": "/platform/cotizaciones",
+    "customerDashboard": "/app",
+    "employees": "/app/personal/empleados",
+    "shifts": "/app/personal/turnos",
+    "attendance": "/app/personal/asistencia",
+    "devices": "/app/dispositivos",
+    "attendanceKiosk": "/kiosk/asistencia",
+    "quality": "/app/calidad",
+    "isolatedLegacyDemo": "/demo"
+  },
+  "securityInvariants": [
+    "passwords stored only as scrypt hashes with per-user salt",
+    "native session tokens stored only as SHA-256 hashes and delivered through HttpOnly cookies",
+    "server-validated identity, membership and active organization",
+    "Platform MFA and granular platform permissions",
+    "tenant and branch scope intersection before operational access",
+    "authenticated navigations and private APIs are network-only in the service worker",
+    "logout purges KitchenMind CacheStorage and IndexedDB state",
+    "biometric data is an external opaque reference; raw fingerprints are forbidden",
+    "device secrets are returned once and stored only as hashes",
+    "no secrets committed to source control"
+  ],
+  "knownLimitations": [
+    "binary Quality evidence upload/download requires a private object-storage adapter on Vercel",
+    "physical fingerprint-reader validation requires the selected vendor SDK/local bridge"
+  ],
+  "validation": {
+    "staticReadinessTests": "pass",
+    "typescriptSyntaxTranspile": "pass (280 active TS/TSX files)",
+    "packageLockRootConsistency": "pass",
+    "fullNpmCiTypecheckBuild": "pass locally and in Vercel production deployment"
+  }
+}
