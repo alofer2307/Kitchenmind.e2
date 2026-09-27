@@ -626,7 +626,7 @@ export class D1OperationalRepository implements OperationalRepository {
     if (input.employeeId) {
       const employee = await this.provider.first<{ id: string; branchId: string; status: string }>("SELECT id, branch_id AS branchId, status FROM tenant_employees WHERE id = ? AND organization_id = ?", [input.employeeId, member.organizationId]);
       if (!employee || employee.branchId !== input.branchId || employee.status !== "active") throw new Error("El empleado no pertenece a esta sucursal o está inactivo.");
-      const linked = await this.provider.first<{ id: string }>("SELECT id FROM tenant_people WHERE employee_id = ?", [input.employeeId]);
+      const linked = await this.provider.first<{ id: string }>("SELECT id FROM tenant_people WHERE employee_id = ? AND organization_id = ?", [input.employeeId, member.organizationId]);
       if (linked) return linked;
     }
     if (input.clientId) {

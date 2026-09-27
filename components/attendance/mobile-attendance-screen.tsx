@@ -19,7 +19,12 @@ export function MobileAttendanceScreen() {
     if (!response.ok || !body.data) throw new Error(body.error ?? "No se pudo consultar tu asistencia.");
     setAccounts(body.data);
   }, []);
-  useEffect(() => { void refresh().catch((reason) => setError(String(reason.message ?? reason))).finally(() => setLoading(false)); }, [refresh]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refresh().catch((reason) => setError(String(reason.message ?? reason))).finally(() => setLoading(false));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
 
   const mark = async (account: Account, action: "entry" | "exit") => {
     setBusy(account.employeeId); setError(null); setMessage(null);

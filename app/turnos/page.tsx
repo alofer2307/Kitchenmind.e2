@@ -1,2 +1,2 @@
-import { ShiftsScreen } from "@/components/personnel/shifts-screen";
-export default function Page() { return <ShiftsScreen />; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/demo/turnos"); }

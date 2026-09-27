@@ -1,2 +1,2 @@
-import { InventoryPage } from "@/components/core/core-pages";
-export default function Page() { return <InventoryPage />; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/demo/inventario"); }
