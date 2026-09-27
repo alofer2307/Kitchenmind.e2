@@ -23,7 +23,12 @@ export function MobileAttendanceSettings({ organizationId, branchId }: { organiz
     setEmployees(body.data.employees);
     setSelected(body.data.employees[0]?.id ?? "");
   }, [organizationId, branchId]);
-  useEffect(() => { void load().catch((error) => setNotice(error.message)); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load().catch((error) => setNotice(error.message));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const locate = () => {
     if (!navigator.geolocation) return setNotice("Este dispositivo no permite consultar ubicación.");

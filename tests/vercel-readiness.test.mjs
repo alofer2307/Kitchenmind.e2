@@ -43,3 +43,15 @@ test("deployment template documents all required Vercel variables", async () => 
   const env = await read(".env.example");
   for (const key of ["TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "KITCHENMIND_PLATFORM_OWNER_EMAIL", "KITCHENMIND_OWNER_PASSWORD", "KITCHENMIND_PLATFORM_MFA_KEY", "NEXT_PUBLIC_APP_URL"]) assert.match(env, new RegExp(`^${key}=`, "m"));
 });
+
+test("legacy localStorage modules are isolated below /demo", async () => {
+  const routes = JSON.parse(await read("package.json"));
+  assert.equal(routes.name, "kitchenmind");
+  for (const route of ["actividad", "calidad", "compras", "configuracion", "empleados", "inventario", "kiro", "sucursales", "turnos"]) {
+    const legacyPage = await read(`app/${route}/page.tsx`);
+    assert.match(legacyPage, new RegExp(`redirect\\(\"/demo/${route}\"\\)`));
+    await read(`app/demo/${route}/page.tsx`);
+  }
+  const navigation = await read("constants/routes.ts");
+  assert.doesNotMatch(navigation, /href: "\/(?:empleados|turnos|sucursales|inventario|compras|calidad|actividad|kiro|configuracion)"/);
+});
