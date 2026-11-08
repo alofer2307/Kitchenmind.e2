@@ -62,6 +62,19 @@ export class PlatformTenancyService {
   async acceptedQuotes() { await this.initialize(); return this.repository.acceptedQuotes(); }
   async eligibility(quoteId: string) { await this.initialize(); return this.repository.eligibility(parse(idSchema, quoteId)); }
   async organizations() { await this.initialize(); return this.repository.organizations(); }
+  async organizationsPage(params: URLSearchParams) {
+    await this.initialize();
+    const schema = z.object({
+      search: z.string().trim().max(120).default(""),
+      status: z.enum(["all", "provisioning", "onboarding", "ready_for_review", "active", "restricted", "suspended", "cancelled"]).default("all"),
+      moduleCode: z.string().trim().max(50).regex(/^[A-Za-z0-9_-]*$/).default("all"),
+      onlyBlocked: z.enum(["true", "false"]).default("false"),
+      page: z.coerce.number().int().min(1).max(100000).default(1),
+      pageSize: z.coerce.number().int().min(1).max(50).default(20),
+    }).strict();
+    const input = parse(schema, Object.fromEntries(["search", "status", "moduleCode", "onlyBlocked", "page", "pageSize"].filter((key) => params.has(key)).map((key) => [key, params.get(key)])));
+    return this.repository.organizationsPage({ ...input, onlyBlocked: input.onlyBlocked === "true" });
+  }
   async organization(id: string) {
     await this.initialize();
     const result = await this.repository.organization(parse(idSchema, id));
