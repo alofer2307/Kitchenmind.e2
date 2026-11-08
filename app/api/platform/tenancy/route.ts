@@ -9,6 +9,7 @@ const readPermissions: Record<string, PlatformPermissionCode> = {
   accepted_quotes: "platform.organizations.provision",
   eligibility: "platform.organizations.provision",
   organizations: "platform.organizations.read",
+  organizations_page: "platform.organizations.read",
   organization: "platform.organizations.read",
   workspace: "platform.organizations.read",
 };
@@ -36,6 +37,7 @@ export async function GET(request: Request): Promise<Response> {
     if (view === "accepted_quotes") return platformJson({ data: await service.acceptedQuotes() });
     if (view === "eligibility") return platformJson({ data: await service.eligibility(url.searchParams.get("quoteId") ?? "") });
     if (view === "organizations") return platformJson({ data: await service.organizations() });
+    if (view === "organizations_page") return platformJson({ data: await service.organizationsPage(url.searchParams) });
     if (view === "workspace") return platformJson({ data: await service.workspace(url.searchParams.get("id") ?? "", url.searchParams.get("branchId") ?? undefined) });
     return platformJson({ data: await service.organization(url.searchParams.get("id") ?? "") });
   } catch (error) {

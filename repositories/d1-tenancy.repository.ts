@@ -485,7 +485,20 @@ export class D1TenancyRepository implements TenancyRepository {
     return { organizationId, provisioningRequestId: requestId, invitationId, invitationUrl: `/aceptar-invitacion?token=${encodeURIComponent(invitationToken)}`, reused: false };
   }
 
+  private mapOrganizations(rows: Record<string, unknown>[]): OrganizationSummary[] {
+    return rows.map((row) => ({
+      id: String(row.id), code: String(row.code), slug: String(row.slug), commercialName: String(row.commercialName),
+      status: String(row.status) as OrganizationStatus, onboardingStatus: String(row.onboardingStatus) as OnboardingProjectStatus,
+      onboardingPercentage: Number(row.onboardingPercentage), sourceQuoteId: String(row.sourceQuoteId), sourceQuoteNumber: String(row.sourceQuoteNumber),
+      branchCount: Number(row.branchCount), activeModuleCount: Number(row.activeModuleCount), pendingInvitationCount: Number(row.pendingInvitationCount),
+      businessProfileId: String(row.businessProfileId), administratorEmail: row.administratorEmail ? String(row.administratorEmail) : null,
+      moduleCodes: row.moduleCodes ? String(row.moduleCodes).split(",").filter(Boolean) : [], blockerCount: Number(row.blockerCount),
+      createdAt: String(row.createdAt), updatedAt: String(row.updatedAt), activatedAt: row.activatedAt ? String(row.activatedAt) : null, version: Number(row.version),
+    }));
+  }
+
   async organizations(): Promise<OrganizationSummary[]> {
+    // Compatibilidad para los consumidores existentes. Las listas nuevas usan organizationsPage.
     const rows = await this.provider.all<Record<string, unknown>>(`SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
       COALESCE(op.completion_percentage, 0) AS onboardingPercentage, o.source_quote_id AS sourceQuoteId, q.quote_number AS sourceQuoteNumber,
       (SELECT COUNT(*) FROM tenant_branches b WHERE b.organization_id = o.id AND b.status = 'active') AS branchCount,
@@ -497,15 +510,37 @@ export class D1TenancyRepository implements TenancyRepository {
       o.business_profile_id AS businessProfileId, o.created_at AS createdAt, o.updated_at AS updatedAt, o.activated_at AS activatedAt, o.version
       FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id LEFT JOIN onboarding_projects op ON op.organization_id = o.id
       WHERE o.deleted_at IS NULL ORDER BY o.updated_at DESC`, [nowIso()]);
-    return rows.map((row) => ({
-      id: String(row.id), code: String(row.code), slug: String(row.slug), commercialName: String(row.commercialName),
-      status: String(row.status) as OrganizationStatus, onboardingStatus: String(row.onboardingStatus) as OnboardingProjectStatus,
-      onboardingPercentage: Number(row.onboardingPercentage), sourceQuoteId: String(row.sourceQuoteId), sourceQuoteNumber: String(row.sourceQuoteNumber),
-      branchCount: Number(row.branchCount), activeModuleCount: Number(row.activeModuleCount), pendingInvitationCount: Number(row.pendingInvitationCount),
-      businessProfileId: String(row.businessProfileId), administratorEmail: row.administratorEmail ? String(row.administratorEmail) : null,
-      moduleCodes: row.moduleCodes ? String(row.moduleCodes).split(",").filter(Boolean) : [], blockerCount: Number(row.blockerCount),
-      createdAt: String(row.createdAt), updatedAt: String(row.updatedAt), activatedAt: row.activatedAt ? String(row.activatedAt) : null, version: Number(row.version),
-    }));
+    return this.mapOrganizations(rows);
+  }
+
+  async organizationsPage(input: { search: string; status: string; moduleCode: string; onlyBlocked: boolean; page: number; pageSize: number }): Promise<{ items: OrganizationSummary[]; total: number; page: number; pageSize: number; pages: number }> {
+    const conditions = ["o.deleted_at IS NULL"];
+    const values: unknown[] = [];
+    if (input.search) {
+      conditions.push("(LOWER(o.commercial_name) LIKE ? ESCAPE '\\' OR LOWER(o.code) LIKE ? ESCAPE '\\' OR LOWER(COALESCE(q.quote_number, '')) LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM organization_memberships m JOIN customer_users u ON u.id = m.user_id WHERE m.organization_id = o.id AND m.status = 'active' AND LOWER(u.email) LIKE ? ESCAPE '\\'))");
+      const term = `%${input.search.toLocaleLowerCase("es-MX").replace(/[\\%_]/g, "\\$&")}%`;
+      values.push(term, term, term, term);
+    }
+    if (input.status !== "all") { conditions.push("o.status = ?"); values.push(input.status); }
+    if (input.moduleCode !== "all") { conditions.push("EXISTS (SELECT 1 FROM organization_entitlements em WHERE em.organization_id = o.id AND em.module_code = ? AND em.enabled = 1 AND em.status = 'active')"); values.push(input.moduleCode); }
+    if (input.onlyBlocked) conditions.push("EXISTS (SELECT 1 FROM onboarding_tasks ot WHERE ot.organization_id = o.id AND ot.status = 'blocked')");
+    const where = conditions.join(" AND ");
+    const count = await this.provider.first<{ total: number }>(`SELECT COUNT(*) AS total FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id WHERE ${where}`, values);
+    const total = Number(count?.total ?? 0);
+    const pages = Math.max(1, Math.ceil(total / input.pageSize));
+    const page = Math.min(input.page, pages);
+    const rows = await this.provider.all<Record<string, unknown>>(`SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
+      COALESCE(op.completion_percentage, 0) AS onboardingPercentage, o.source_quote_id AS sourceQuoteId, q.quote_number AS sourceQuoteNumber,
+      (SELECT COUNT(*) FROM tenant_branches b WHERE b.organization_id = o.id AND b.status = 'active') AS branchCount,
+      (SELECT COUNT(*) FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS activeModuleCount,
+      (SELECT COUNT(*) FROM organization_invitations i WHERE i.organization_id = o.id AND i.status = 'pending' AND i.expires_at > ?) AS pendingInvitationCount,
+      (SELECT cu.email FROM organization_memberships m JOIN customer_users cu ON cu.id = m.user_id WHERE m.organization_id = o.id AND m.status = 'active' ORDER BY m.joined_at LIMIT 1) AS administratorEmail,
+      (SELECT GROUP_CONCAT(e.module_code, ',') FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS moduleCodes,
+      (SELECT COUNT(*) FROM onboarding_tasks ot WHERE ot.organization_id = o.id AND ot.status = 'blocked') AS blockerCount,
+      o.business_profile_id AS businessProfileId, o.created_at AS createdAt, o.updated_at AS updatedAt, o.activated_at AS activatedAt, o.version
+      FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id LEFT JOIN onboarding_projects op ON op.organization_id = o.id
+      WHERE ${where} ORDER BY o.updated_at DESC, o.id DESC LIMIT ? OFFSET ?`, [nowIso(), ...values, input.pageSize, (page - 1) * input.pageSize]);
+    return { items: this.mapOrganizations(rows), total, page, pageSize: input.pageSize, pages };
   }
 
   private async sectionSummaries(organizationId: string): Promise<OnboardingSectionSummary[]> {
@@ -523,7 +558,18 @@ export class D1TenancyRepository implements TenancyRepository {
   }
 
   async organization(id: string): Promise<OrganizationDetail | null> {
-    const summary = (await this.organizations()).find((item) => item.id === id);
+    const summaries = await this.provider.all<Record<string, unknown>>(`SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
+      COALESCE(op.completion_percentage, 0) AS onboardingPercentage, o.source_quote_id AS sourceQuoteId, q.quote_number AS sourceQuoteNumber,
+      (SELECT COUNT(*) FROM tenant_branches b WHERE b.organization_id = o.id AND b.status = 'active') AS branchCount,
+      (SELECT COUNT(*) FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS activeModuleCount,
+      (SELECT COUNT(*) FROM organization_invitations i WHERE i.organization_id = o.id AND i.status = 'pending' AND i.expires_at > ?) AS pendingInvitationCount,
+      (SELECT cu.email FROM organization_memberships m JOIN customer_users cu ON cu.id = m.user_id WHERE m.organization_id = o.id AND m.status = 'active' ORDER BY m.joined_at LIMIT 1) AS administratorEmail,
+      (SELECT GROUP_CONCAT(e.module_code, ',') FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS moduleCodes,
+      (SELECT COUNT(*) FROM onboarding_tasks ot WHERE ot.organization_id = o.id AND ot.status = 'blocked') AS blockerCount,
+      o.business_profile_id AS businessProfileId, o.created_at AS createdAt, o.updated_at AS updatedAt, o.activated_at AS activatedAt, o.version
+      FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id LEFT JOIN onboarding_projects op ON op.organization_id = o.id
+      WHERE o.id = ? AND o.deleted_at IS NULL LIMIT 1`, [nowIso(), id]);
+    const summary = this.mapOrganizations(summaries)[0];
     if (!summary) return null;
     const row = await this.provider.first<Record<string, unknown>>(`SELECT legal_name AS legalName, country_code AS countryCode, default_currency AS defaultCurrency,
       default_timezone AS defaultTimezone, locale, contact_email AS contactEmail, contact_phone AS contactPhone, business_profile_id AS businessProfileId
