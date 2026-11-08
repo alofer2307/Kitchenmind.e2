@@ -558,7 +558,18 @@ export class D1TenancyRepository implements TenancyRepository {
   }
 
   async organization(id: string): Promise<OrganizationDetail | null> {
-    const summary = (await this.organizations()).find((item) => item.id === id);
+    const summaries = await this.provider.all<Record<string, unknown>>(`SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
+      COALESCE(op.completion_percentage, 0) AS onboardingPercentage, o.source_quote_id AS sourceQuoteId, q.quote_number AS sourceQuoteNumber,
+      (SELECT COUNT(*) FROM tenant_branches b WHERE b.organization_id = o.id AND b.status = 'active') AS branchCount,
+      (SELECT COUNT(*) FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS activeModuleCount,
+      (SELECT COUNT(*) FROM organization_invitations i WHERE i.organization_id = o.id AND i.status = 'pending' AND i.expires_at > ?) AS pendingInvitationCount,
+      (SELECT cu.email FROM organization_memberships m JOIN customer_users cu ON cu.id = m.user_id WHERE m.organization_id = o.id AND m.status = 'active' ORDER BY m.joined_at LIMIT 1) AS administratorEmail,
+      (SELECT GROUP_CONCAT(e.module_code, ',') FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS moduleCodes,
+      (SELECT COUNT(*) FROM onboarding_tasks ot WHERE ot.organization_id = o.id AND ot.status = 'blocked') AS blockerCount,
+      o.business_profile_id AS businessProfileId, o.created_at AS createdAt, o.updated_at AS updatedAt, o.activated_at AS activatedAt, o.version
+      FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id LEFT JOIN onboarding_projects op ON op.organization_id = o.id
+      WHERE o.id = ? AND o.deleted_at IS NULL LIMIT 1`, [nowIso(), id]);
+    const summary = this.mapOrganizations(summaries)[0];
     if (!summary) return null;
     const row = await this.provider.first<Record<string, unknown>>(`SELECT legal_name AS legalName, country_code AS countryCode, default_currency AS defaultCurrency,
       default_timezone AS defaultTimezone, locale, contact_email AS contactEmail, contact_phone AS contactPhone, business_profile_id AS businessProfileId
