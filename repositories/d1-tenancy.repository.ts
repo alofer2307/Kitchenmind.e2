@@ -509,7 +509,7 @@ export class D1TenancyRepository implements TenancyRepository {
       (SELECT COUNT(*) FROM onboarding_tasks ot WHERE ot.organization_id = o.id AND ot.status = 'blocked') AS blockerCount,
       o.business_profile_id AS businessProfileId, o.created_at AS createdAt, o.updated_at AS updatedAt, o.activated_at AS activatedAt, o.version
       FROM tenant_organizations o JOIN quotes q ON q.id = o.source_quote_id LEFT JOIN onboarding_projects op ON op.organization_id = o.id
-      WHERE o.deleted_at IS NULL ORDER BY o.updated_at DESC, [nowIso()]);
+      WHERE o.deleted_at IS NULL ORDER BY o.updated_at DESC`, [nowIso()]);
     return this.mapOrganizations(rows);
   }
 
