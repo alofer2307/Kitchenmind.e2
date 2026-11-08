@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Building2, CheckCircle2, CircleAlert, KeyRound, Loader2, Plus, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, KeyRound, Loader2, Plus, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { PlatformShell } from "@/components/platform/platform-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
