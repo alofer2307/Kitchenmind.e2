@@ -529,7 +529,7 @@ export class D1TenancyRepository implements TenancyRepository {
     const total = Number(count?.total ?? 0);
     const pages = Math.max(1, Math.ceil(total / input.pageSize));
     const page = Math.min(input.page, pages);
-    const rows = await this.provider.all<Record<string, unknown>>(``SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
+    const rows = await this.provider.all<Record<string, unknown>>(`SELECT o.id, o.code, o.slug, o.commercial_name AS commercialName, o.status, o.onboarding_status AS onboardingStatus,
       COALESCE(op.completion_percentage, 0) AS onboardingPercentage, o.source_quote_id AS sourceQuoteId, q.quote_number AS sourceQuoteNumber,
       (SELECT COUNT(*) FROM tenant_branches b WHERE b.organization_id = o.id AND b.status = 'active') AS branchCount,
       (SELECT COUNT(*) FROM organization_entitlements e WHERE e.organization_id = o.id AND e.module_code IS NOT NULL AND e.enabled = 1 AND e.status = 'active') AS activeModuleCount,
