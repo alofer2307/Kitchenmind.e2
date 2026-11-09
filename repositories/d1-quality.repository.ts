@@ -398,6 +398,50 @@ export class D1QualityRepository implements TenantQualityRepository {
     };
   }
 
+  /**
+   * Consulta histórica para auditoría. Usa permiso de exportación y alcance de
+   * sucursal en servidor; no depende de la ventana de 150 filas del dashboard.
+   */
+  async auditLookup(identity: TenantActor, input: { organizationId: string; branchId: string; operationalDate: string; page: number }) {
+    await this.ensureCatalog();
+    const member = await this.membership(identity, input.organizationId, "quality.reports.export");
+    await this.assertQualityModule(member.organizationId);
+    const branch = await this.assertBranch(member, input.branchId, false);
+    const pageSize = 100;
+    const offset = (input.page - 1) * pageSize;
+    const total = await this.provider.first<{ total: number }>(
+      "SELECT COUNT(*) AS total FROM quality_log_instances WHERE organization_id = ? AND branch_id = ? AND operational_date = ?",
+      [member.organizationId, input.branchId, input.operationalDate],
+    );
+    const rows = await this.provider.all<{
+      id: string; branchName: string; templateName: string; operationalDate: string;
+      dueAt: string; status: string; completedAt: string | null; revisionNumber: number;
+    }>(`SELECT l.id, b.name AS branchName, tv.name_snapshot AS templateName,
+      l.operational_date AS operationalDate, l.due_at AS dueAt,
+      l.status, l.completed_at AS completedAt, l.revision_number AS revisionNumber
+      FROM quality_log_instances l
+      JOIN tenant_branches b ON b.id = l.branch_id AND b.organization_id = l.organization_id
+      JOIN quality_template_versions tv ON tv.id = l.template_version_id AND tv.organization_id = l.organization_id
+      WHERE l.organization_id = ? AND l.branch_id = ? AND l.operational_date = ?
+      ORDER BY l.due_at DESC, l.id LIMIT ? OFFSET ?`,
+      [member.organizationId, input.branchId, input.operationalDate, pageSize, offset],
+    );
+    return {
+      branchId: input.branchId,
+      operationalDate: input.operationalDate,
+      page: input.page,
+      pageSize,
+      total: Number(total?.total ?? 0),
+      items: rows.map((row) => ({
+        id: String(row.id), branchName: String(row.branchName),
+        templateName: String(row.templateName), operationalDate: String(row.operationalDate),
+        dueAt: String(row.dueAt), status: String(row.status),
+        completedAt: row.completedAt ? String(row.completedAt) : null,
+        revisionNumber: Number(row.revisionNumber),
+      })),
+    };
+  }
+
   async authorizeExport(identity: TenantActor, organizationId: string): Promise<void> {
     await this.ensureCatalog();
     const member = await this.membership(identity, organizationId, "quality.reports.export");
