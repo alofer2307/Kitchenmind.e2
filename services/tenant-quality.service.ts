@@ -102,6 +102,14 @@ export class TenantQualityService {
     });
   }
 
+  async auditLookup(params: { organizationId: string; branchId: string; date: string; page?: string | null }) {
+    const organizationId = parse(idSchema, params.organizationId);
+    const branchId = parse(idSchema, params.branchId);
+    const operationalDate = parse(operationalDateSchema, params.date);
+    const page = parse(z.coerce.number().int().min(1).max(10000), params.page ?? "1");
+    return this.repository.auditLookup(this.requireIdentity(), { organizationId, branchId, operationalDate, page });
+  }
+
   async createTemplate(value: unknown) { await this.assertMutationRate(); return this.repository.createTemplate(this.requireIdentity(), parse(createTemplateSchema, value)); }
   async updateTemplate(value: unknown) { await this.assertMutationRate(); const input = parse(updateTemplateSchema, value); await this.repository.updateDraftTemplate(this.requireIdentity(), input); return { updated: true }; }
   async publishTemplate(value: unknown) { await this.assertMutationRate(); const input = parse(versionActionSchema, value); await this.repository.publishTemplate(this.requireIdentity(), input.organizationId, input.templateVersionId, input.expectedVersion); return { published: true }; }
@@ -164,7 +172,7 @@ export class TenantQualityService {
     const bytes = format === "pdf" ? buildQualityPdf(snapshot, log) : format === "xlsx" ? buildQualityXlsx(snapshot, log) : buildQualityCsv(snapshot, log);
     const contentType = format === "pdf" ? "application/pdf" : format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv; charset=utf-8";
     const provider = new D1QualityDataProvider();
-    await provider.run(`INSERT INTO organization_audit_events (id, organization_id, actor_type, actor_id, action, entity, entity_id, outcome, reason, after_json, created_at) VALUES (?, ?, 'customer_membership', ?, 'quality.export.generated', 'quality_log_instance', ?, 'success', ?, ?, ?)`, [crypto.randomUUID(), snapshot.organization.id, snapshot.membership.id, log.id, `Exportación ${format.toUpperCase()} generada.`, JSON.stringify({ format }), new Date().toISOString()]);
+    await provider.run(`INSERT INTO organization_audit_events (id, organization_id, actor_type, actor_id, action, entity, entity_id, outcome, reason, after_json, created_at) VALUES (?, ?, 'customer_membership', ?, 'quality.export.generated', 'quality_log_instance', ?, 'success', ?, ?, ?)`, [crypto.randomUUID(), snapshot.organization.id, snapshot.membership.id, log.id, `Exportación ${format.toUpperCase()} generada.`, JSON.stringify({ format, fileName: qualityExportFilename(snapshot, log, format), branchId: log.branchId, operationalDate: log.operationalDate, templateName: log.templateName }), new Date().toISOString()]);
     return new Response(toResponseBody(bytes), { headers: {
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="${qualityExportFilename(snapshot, log, format)}"`,
@@ -183,7 +191,7 @@ export class TenantQualityService {
     const bytes = format === "pdf" ? buildQualityReportPdf(snapshot) : format === "xlsx" ? buildQualityReportXlsx(snapshot) : buildQualityReportCsv(snapshot);
     const contentType = format === "pdf" ? "application/pdf" : format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv; charset=utf-8";
     const provider = new D1QualityDataProvider();
-    await provider.run(`INSERT INTO organization_audit_events (id, organization_id, actor_type, actor_id, action, entity, entity_id, outcome, reason, after_json, created_at) VALUES (?, ?, 'customer_membership', ?, 'quality.report.generated', 'quality_report', ?, 'success', ?, ?, ?)`, [crypto.randomUUID(), snapshot.organization.id, snapshot.membership.id, `${snapshot.filters.periodStart.slice(0, 7)}:${snapshot.selectedBranchId ?? "all"}`, `Reporte mensual ${format.toUpperCase()} generado.`, JSON.stringify({ format, branchId: snapshot.selectedBranchId, periodStart: snapshot.filters.periodStart }), new Date().toISOString()]);
+    await provider.run(`INSERT INTO organization_audit_events (id, organization_id, actor_type, actor_id, action, entity, entity_id, outcome, reason, after_json, created_at) VALUES (?, ?, 'customer_membership', ?, 'quality.report.generated', 'quality_report', ?, 'success', ?, ?, ?)`, [crypto.randomUUID(), snapshot.organization.id, snapshot.membership.id, `${snapshot.filters.periodStart.slice(0, 7)}:${snapshot.selectedBranchId ?? "all"}`, `Reporte mensual ${format.toUpperCase()} generado.`, JSON.stringify({ format, fileName: qualityReportFilename(snapshot, format), branchId: snapshot.selectedBranchId, periodStart: snapshot.filters.periodStart }), new Date().toISOString()]);
     return new Response(toResponseBody(bytes), { headers: {
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="${qualityReportFilename(snapshot, format)}"`,
