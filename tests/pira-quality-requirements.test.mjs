@@ -44,3 +44,24 @@ test("PIRA: la exportación deja trazabilidad del documento", async () => {
   assert.match(service, /quality\.export\.generated/);
   assert.match(service, /fileName: qualityExportFilename/);
 });
+
+test("PIRA: la verificación final de acciones no la realiza un gerente sin rol de Calidad", async () => {
+  const repository = await read("repositories/d1-quality.repository.ts");
+  const screen = await read("components/quality/quality-log-capture.tsx");
+  assert.match(repository, /roleCodes\.includes\("quality_supervisor"\)/);
+  assert.match(repository, /Solo una persona con rol de Supervisión de Calidad puede verificar/);
+  assert.match(screen, /pendingVerification && canVerify/);
+  assert.match(repository, /status === "resolved" && resolution\.length < 3/);
+});
+
+test("PIRA: la búsqueda histórica filtra por sucursal y fecha y exige permiso de exportación", async () => {
+  const repository = await read("repositories/d1-quality.repository.ts");
+  const service = await read("services/tenant-quality.service.ts");
+  const api = await read("app/api/customer/quality/audit/route.ts");
+  assert.match(repository, /async auditLookup/);
+  assert.match(repository, /membership\(identity, input\.organizationId, "quality\.reports\.export"\)/);
+  assert.match(repository, /assertBranch\(member, input\.branchId, false\)/);
+  assert.match(repository, /l\.operational_date = \?/);
+  assert.match(service, /parse\(operationalDateSchema, params\.date\)/);
+  assert.match(api, /getKitchenMindUser/);
+});
