@@ -59,6 +59,7 @@ interface MembershipContext {
   displayName: string;
   permissions: string[];
   roleNames: string[];
+  roleCodes: string[];
   scopes: Array<{ type: string; id: string | null; accessMode: string }>;
 }
 
@@ -147,7 +148,7 @@ export class D1QualityRepository implements TenantQualityRepository {
   private async membership(identity: TenantActor, organizationId?: string, permission = "quality.logs.read", write = false): Promise<MembershipContext> {
     const rows = await this.provider.all<Record<string, unknown>>(`SELECT m.id AS membershipId, m.organization_id AS organizationId, m.display_name AS displayName,
       o.status AS organizationStatus, o.code AS organizationCode, o.commercial_name AS organizationName, o.default_timezone AS timezone,
-      r.name AS roleName, p.code AS permissionCode
+      r.name AS roleName, r.code AS roleCode, p.code AS permissionCode
       FROM customer_users u JOIN organization_memberships m ON m.user_id = u.id JOIN tenant_organizations o ON o.id = m.organization_id AND o.deleted_at IS NULL
       LEFT JOIN membership_role_assignments mra ON mra.membership_id = m.id
       LEFT JOIN organization_roles r ON r.id = mra.role_id AND r.organization_id = m.organization_id AND r.status = 'active'
@@ -171,7 +172,8 @@ export class D1QualityRepository implements TenantQualityRepository {
       membershipId: String(selected[0].membershipId), organizationId: selectedId, organizationStatus,
       organizationCode: String(selected[0].organizationCode), organizationName: String(selected[0].organizationName), timezone: String(selected[0].timezone),
       displayName: String(selected[0].displayName), permissions,
-      roleNames: Array.from(new Set(selected.map((row) => row.roleName ? String(row.roleName) : "").filter(Boolean))), scopes,
+      roleNames: Array.from(new Set(selected.map((row) => row.roleName ? String(row.roleName) : "").filter(Boolean))),
+      roleCodes: Array.from(new Set(selected.map((row) => row.roleCode ? String(row.roleCode) : "").filter(Boolean))), scopes,
     };
   }
 
@@ -763,7 +765,7 @@ export class D1QualityRepository implements TenantQualityRepository {
     const immediateCorrection = (input.immediateCorrection ?? "").trim();
     const preventiveAction = (input.preventiveAction ?? "").trim();
     const resolution = (input.resolution ?? "").trim();
-    if (status === "resolved" && (rootCause.length < 3 || immediateCorrection.length < 3 || resolution.length < 3)) throw new Error("Para resolver, registra causa raíz, corrección inmediata y solución definitiva.");
+    if (status === "resolved" && resolution.length < 3) throw new Error("Para resolver, describe qué se hizo para corregir el problema.");
     if (status === "cancelled" && resolution.length < 5) throw new Error("Explica por qué se cancela la acción.");
     const assignee = input.assignedToMembershipId === undefined ? action.assignedToMembershipId : input.assignedToMembershipId;
     if (assignee) {
@@ -784,6 +786,7 @@ export class D1QualityRepository implements TenantQualityRepository {
   async verifyCorrectiveAction(identity: TenantActor, input: { organizationId: string; actionId: string; expectedVersion: number; verificationNotes: string }): Promise<void> {
     await this.ensureCatalog();
     const member = await this.membership(identity, input.organizationId, "quality.corrective.manage", true);
+    if (!member.roleCodes.includes("quality_supervisor")) throw new Error("Solo una persona con rol de Supervisión de Calidad puede verificar y cerrar la acción correctiva.");
     await this.assertQualityModule(member.organizationId);
     const action = await this.provider.first<{ branchId: string; status: string; version: number; answerId: string | null }>("SELECT branch_id AS branchId, status, version, answer_id AS answerId FROM quality_corrective_actions WHERE id = ? AND organization_id = ?", [input.actionId, input.organizationId]);
     if (!action) throw new Error("No se encontró la acción correctiva.");
