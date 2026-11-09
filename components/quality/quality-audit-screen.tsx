@@ -99,7 +99,6 @@ export function QualityAuditScreen({ organizationId, branchId }: { organizationI
           <button className="rounded-xl border bg-white px-4 py-2 font-semibold disabled={busy || result.page * result.pageSize >= result.total} onClick={() => void search(result.page + 1)}>Siguiente</button>
         </div>}
       </section>}
-      <p className="text-xs">Este módulo no modifica registros ni certifica el cumplimiento sanitario. El alcance de consulta depende de los permisos y sucursales autorizadas.</p>
     </div>
   </main>;
 }
