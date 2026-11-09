@@ -199,6 +199,7 @@ export interface QualitySnapshot {
     configureTemplates: boolean;
     capture: boolean;
     manageCorrectiveActions: boolean;
+    verifyCorrectiveActions: boolean;
     uploadEvidence: boolean;
     exportReports: boolean;
     crossBranch: boolean;
