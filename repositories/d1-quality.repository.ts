@@ -390,6 +390,7 @@ export class D1QualityRepository implements TenantQualityRepository {
       capabilities: {
         read: true, configureTemplates: canConfigure && member.organizationStatus !== "restricted", capture: member.permissions.includes("quality.logs.capture") && member.organizationStatus !== "restricted",
         manageCorrectiveActions: member.permissions.includes("quality.corrective.manage") && member.organizationStatus !== "restricted",
+        verifyCorrectiveActions: member.permissions.includes("quality.corrective.manage") && member.roleCodes.includes("quality_supervisor") && member.organizationStatus !== "restricted",
         uploadEvidence: member.permissions.includes("quality.evidence.upload") && member.organizationStatus !== "restricted", exportReports: member.permissions.includes("quality.reports.export"), crossBranch: organizationWide && branches.length > 1, restricted: member.organizationStatus === "restricted",
       },
       filters: { branchId, periodStart }, generatedAt: nowIso(), selectedLogId: filters.selectedLogId ?? null,
