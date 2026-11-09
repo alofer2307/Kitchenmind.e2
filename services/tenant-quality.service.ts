@@ -102,6 +102,14 @@ export class TenantQualityService {
     });
   }
 
+  async auditLookup(params: { organizationId: string; branchId: string; date: string; page?: string | null }) {
+    const organizationId = parse(idSchema, params.organizationId);
+    const branchId = parse(idSchema, params.branchId);
+    const operationalDate = parse(operationalDateSchema, params.date);
+    const page = parse(z.coerce.number().int().min(1).max(10000), params.page ?? "1");
+    return this.repository.auditLookup(this.requireIdentity(), { organizationId, branchId, operationalDate, page });
+  }
+
   async createTemplate(value: unknown) { await this.assertMutationRate(); return this.repository.createTemplate(this.requireIdentity(), parse(createTemplateSchema, value)); }
   async updateTemplate(value: unknown) { await this.assertMutationRate(); const input = parse(updateTemplateSchema, value); await this.repository.updateDraftTemplate(this.requireIdentity(), input); return { updated: true }; }
   async publishTemplate(value: unknown) { await this.assertMutationRate(); const input = parse(versionActionSchema, value); await this.repository.publishTemplate(this.requireIdentity(), input.organizationId, input.templateVersionId, input.expectedVersion); return { published: true }; }
