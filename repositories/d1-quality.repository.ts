@@ -268,7 +268,7 @@ export class D1QualityRepository implements TenantQualityRepository {
 
     const selectedClause = filters.selectedLogId ? "OR l.id = ?" : "";
     const logValues: unknown[] = [member.organizationId, ...branchIds, periodStart];
-    if (filters.selectedLogId) logValues.push(filters.selectedLogId);
+    if (filters.selectedLogId) logValues.push(filters.selectedLogId, filters.selectedLogId);
     const logRows = await this.provider.all<Record<string, unknown>>(`SELECT l.id, l.branch_id AS branchId, b.name AS branchName, l.template_version_id AS templateVersionId,
       tv.name_snapshot AS templateName, tv.category AS templateCategory, tv.version_number AS templateVersionNumber,
       l.operational_date AS operationalDate, l.due_at AS dueAt, l.status, l.completion_percentage AS completionPercentage, l.deviation_count AS deviationCount,
@@ -278,7 +278,7 @@ export class D1QualityRepository implements TenantQualityRepository {
       FROM quality_log_instances l JOIN tenant_branches b ON b.id = l.branch_id JOIN quality_template_versions tv ON tv.id = l.template_version_id
       LEFT JOIN organization_memberships assignee ON assignee.id = l.assigned_to_membership_id
       WHERE l.organization_id = ? AND l.branch_id IN (${branchSql}) AND (l.updated_at >= ? OR l.status IN ('pending','in_progress') ${selectedClause})
-      ORDER BY CASE l.status WHEN 'in_progress' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, l.due_at DESC LIMIT 150`, logValues);
+      ORDER BY ${filters.selectedLogId ? "CASE WHEN l.id = ? THEN -1 ELSE 0 END," : ""} CASE l.status WHEN 'in_progress' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, l.due_at DESC LIMIT 150`, logValues);
     const logIds = logRows.map((log) => String(log.id));
     const answers = logIds.length ? await this.provider.all<Record<string, unknown>>(`SELECT a.id, a.log_instance_id AS logInstanceId, a.field_id AS fieldId, a.value_type AS valueType, a.has_value AS hasValue, a.value_text AS valueText, a.numeric_value_milli AS numericValueMilli, a.boolean_value AS booleanValue, a.option_value AS optionValue, a.in_range AS inRange, a.notes, a.captured_at AS capturedAt, m.display_name AS capturedByName, a.version FROM quality_log_answers a JOIN organization_memberships m ON m.id = a.captured_by WHERE a.log_instance_id IN (${placeholders(logIds)}) ORDER BY a.captured_at`, logIds) : [];
     const evidenceRows = logIds.length ? await this.provider.all<Record<string, unknown>>(`SELECT e.id, e.log_instance_id AS logInstanceId, e.answer_id AS answerId, e.corrective_action_id AS correctiveActionId, e.file_name AS fileName, e.mime_type AS mimeType, e.size_bytes AS sizeBytes, e.note, e.evidence_type AS evidenceType, e.captured_at AS capturedAt, m.display_name AS capturedByName FROM quality_evidence e JOIN organization_memberships m ON m.id = e.captured_by WHERE e.status = 'available' AND e.log_instance_id IN (${placeholders(logIds)}) ORDER BY e.captured_at DESC`, logIds) : [];
