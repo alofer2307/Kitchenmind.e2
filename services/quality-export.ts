@@ -51,7 +51,7 @@ const crcTable = (() => {
 function crc32(bytes: Uint8Array): number { let c = 0xffffffff; for (const b of bytes) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
 function u16(value: number): Uint8Array { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, value, true); return b; }
 function u32(value: number): Uint8Array { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, value >>> 0, true); return b; }
-function concat(parts: Uint8Array[]): Uint8Array { const size = parts.reduce((s, p) => s + p.length, 0); const out = new Uint8Array(size); let offset = 0; for (const part of parts) { out.set(part, offset); offset += part.length; } return out; }
+function concat(parts: Uint8Array[]): Uint8Array<ArrayBuffer> { const size = parts.reduce((s, p) => s + p.length, 0); const out = new Uint8Array(size); let offset = 0; for (const part of parts) { out.set(part, offset); offset += part.length; } return out; }
 function zip(entries: Array<{ name: string; data: Uint8Array }>): Uint8Array {
   const locals: Uint8Array[] = []; const centrals: Uint8Array[] = []; let offset = 0;
   for (const entry of entries) {
@@ -92,6 +92,10 @@ export function buildQualityPdf(snapshot: QualitySnapshot, log: QualityLogSummar
   if (log.evidence.length) { lines.push("", "EVIDENCIA REFERENCIADA"); for (const item of log.evidence) lines.push(...wrap(`${item.evidenceType}: ${item.fileName} · ${fmt(item.capturedAt)} · ${item.capturedByName}${item.note ? ` · ${item.note}` : ""}`)); }
   if (snapshot.timeline.length) { lines.push("", "TRAZABILIDAD"); for (const event of snapshot.timeline) lines.push(...wrap(`${fmt(event.createdAt)} · ${event.actorName} · ${event.reason ?? event.action}`)); }
   lines.push("", "Confirmación operativa: este documento refleja datos persistentes de KitchenMind y no constituye por sí solo una certificación regulatoria ni firma electrónica certificada.");
+  return renderQualityPdfDocument(lines);
+}
+
+export function renderQualityPdfDocument(lines: readonly string[]): Uint8Array<ArrayBuffer> {
   const pages: string[][] = []; for (let i = 0; i < lines.length; i += 48) pages.push(lines.slice(i, i + 48));
   const objects: Uint8Array[] = []; const pageRefs: number[] = []; let objectNo = 4;
   for (const pageLines of pages) { const pageNo = objectNo++; const contentNo = objectNo++; pageRefs.push(pageNo); const stream = `BT /F1 10 Tf 40 805 Td 14 TL ${pageLines.map((line) => `(${pdfEscape(line)}) Tj T*`).join(" ")} ET`; const streamBytes = latin1(stream); objects[pageNo] = latin1(`${pageNo} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentNo} 0 R >>\nendobj\n`); objects[contentNo] = concat([latin1(`${contentNo} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n`), streamBytes, latin1(`\nendstream\nendobj\n`)]); }
